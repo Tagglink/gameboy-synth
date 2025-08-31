@@ -122,6 +122,11 @@ enum class EnvelopeDirection: uint8_t
     decreasing = 0x00, increasing = 0x01
 };
 
+enum class EnvelopeDirection: uint8_t
+{
+    decreasing = 0x00, increasing = 0x01
+};
+
 // unlike the square and noise waves with velocity of 4 bits,
 // the wave has 2 bits: 00=0%, 01=100%, 10=50%, 11=25%
 enum GBWaveVolume: uint8_t

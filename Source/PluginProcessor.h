@@ -64,6 +64,7 @@ private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GameBoySynthAudioProcessor)
 
+    juce::FileLogger* logger_;
     juce::MidiMessageCollector midiCollector_;
     juce::AudioProcessorValueTreeState parameters_;
 

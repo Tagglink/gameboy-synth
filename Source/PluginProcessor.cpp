@@ -26,15 +26,21 @@ GameBoySynthAudioProcessor::GameBoySynthAudioProcessor()
 #else
     : AudioProcessor(),
 #endif
+      logger_(juce::FileLogger::createDateStampedLogger("gameboysynth", "Processor_", ".log", "GameBoySynth Processor log")),
       // The identifier can't contain spaces or most special characters, since it is
       // serialized as an xml tag name when saving the state.
       parameters_(*this, nullptr, juce::Identifier("GameBoySynth"), parameterLayout())
 {
+    juce::Logger::setCurrentLogger(logger_);
     addParameterListeners();
     Synth::INSTANCE.loadFromParams(parameters_);
 }
 
-GameBoySynthAudioProcessor::~GameBoySynthAudioProcessor() {}
+GameBoySynthAudioProcessor::~GameBoySynthAudioProcessor()
+{
+    juce::Logger::setCurrentLogger(nullptr);
+    delete logger_;
+}
 
 //==============================================================================
 const juce::String GameBoySynthAudioProcessor::getName() const

@@ -15,7 +15,7 @@
 
 
 //==============================================================================
-SquareOscComponent::SquareOscComponent(OSCID id) : controls(id)
+SquareOscComponent::SquareOscComponent(OSCID id, EditorHost* host) : controls(id, host)
 {
     addAndMakeVisible(controls);
 }

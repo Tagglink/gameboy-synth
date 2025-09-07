@@ -13,7 +13,7 @@
 #include "Theme.h"
 
 //==============================================================================
-WaveOscComponent::WaveOscComponent() : controls(2), shapePicker("Shape")
+WaveOscComponent::WaveOscComponent(EditorHost* host) : controls(2, host), shapePicker("Shape")
 {
     addAndMakeVisible(controls);
 

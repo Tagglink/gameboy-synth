@@ -11,11 +11,16 @@
 #include "Synth.h"
 
 //==============================================================================
-GameBoySynthAudioProcessorEditor::GameBoySynthAudioProcessorEditor(GameBoySynthAudioProcessor& p)
+GameBoySynthAudioProcessorEditor::GameBoySynthAudioProcessorEditor(
+        GameBoySynthAudioProcessor& p,
+        juce::AudioProcessorValueTreeState& parameterState)
     : AudioProcessorEditor (&p),
         audioProcessor (p),
-        osc0(0),
-        osc1(1),
+        parameters(parameterState),
+        osc0(0, this),
+        osc1(1, this),
+        osc2(this),
+        osc3(this),
         keyboard(keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
     theme(getLookAndFeel());
@@ -45,4 +50,28 @@ void GameBoySynthAudioProcessorEditor::resized()
     osc2.setBounds(0, OscBoxHeight, OscBoxWidth, OscBoxHeight);
     osc3.setBounds(OscBoxWidth, OscBoxHeight, OscBoxWidth, OscBoxHeight);
     keyboard.setBounds(0, WindowHeight-KeyboardHeight, WindowWidth, KeyboardHeight);
+}
+
+//==============================================================================
+EditorHost::ButtonAttachment* GameBoySynthAudioProcessorEditor::attachButtonToParameter(
+        const juce::String& parameterId,
+        juce::Button& button)
+{
+    return new juce::AudioProcessorValueTreeState::ButtonAttachment(parameters, parameterId, button);
+}
+
+EditorHost::ComboBoxAttachment* GameBoySynthAudioProcessorEditor::attachComboBoxToParameter(
+        const juce::String& parameterId,
+        juce::ComboBox& comboBox)
+{
+    juce::RangedAudioParameter* parameter = parameters.getParameter(parameterId);
+    comboBox.addItemList(parameter->getAllValueStrings(), 1);
+    return new juce::AudioProcessorValueTreeState::ComboBoxAttachment(parameters, parameterId, comboBox);
+}
+
+EditorHost::SliderAttachment* GameBoySynthAudioProcessorEditor::attachSliderToParameter(
+        const juce::String& parameterId,
+        juce::Slider& slider)
+{
+    return new juce::AudioProcessorValueTreeState::SliderAttachment(parameters, parameterId, slider);
 }

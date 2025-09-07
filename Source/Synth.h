@@ -101,10 +101,10 @@ static const uint8_t WAVE_TABLE_NOISE[WAVE_TABLE_SIZE] = {
 };
 
 struct MidiConfig {
-    bool enabled;
-    uint8_t channel;
-    uint8_t voice;
-    int8_t transpose;
+    std::atomic<float>* enabled;
+    std::atomic<float>* channel;
+    std::atomic<float>* voice;
+    std::atomic<float>* transpose;
 };
 
 enum class DutyCycle: uint8_t
@@ -186,7 +186,7 @@ public:
     }
     virtual void setEvent(MidiEvent event) = 0;
 
-    float volume = 1.0;
+    std::atomic<float>* volume = nullptr;
     EnvelopeDirection envelopeDir = EnvelopeDirection::decreasing;
     uint8_t envelopeStep = 0;
 
@@ -206,9 +206,6 @@ protected:
 
 class SquareOscilator: public Oscillator
 {
-private:
-    DutyCycle duty_ = DutyCycle::duty50;
-
 public:
     SquareOscilator(OSCID id) : Oscillator(id) {
         jassert(id == 0 || id == 1);
@@ -217,20 +214,20 @@ public:
     void setDuty(DutyCycle duty);
     void setEvent(MidiEvent event);
 
-    static DutyCycle dutyCycleFromValue(double value)
+    static DutyCycle dutyCycleFromValue(float value)
     {
-        if (value < 18.75) {
+        if (value < 18.75f) {
             return DutyCycle::duty12_5;
-        } else if (value < 37.5) {
+        } else if (value < 37.5f) {
             return DutyCycle::duty25;
-        } else if (value < 62.5) {
+        } else if (value < 62.5f) {
             return DutyCycle::duty50;
         } else {
             return DutyCycle::duty75;
         }
     }
 
-    static double normalizeDutyCycle(double value)
+    static float normalizeDutyCycle(float value)
     {
         DutyCycle d = dutyCycleFromValue(value);
         switch (d) {
@@ -316,12 +313,7 @@ public:
 
     void configure(double sampleRate, int channels);
 
-    void setEnabled(OSCID oscillator, bool enabled);
-    void setTranspose(OSCID oscillator, int8_t transpose);
-    void setMIDIVoice(OSCID oscillator, uint8_t voice);
-    void setMIDIChannel(OSCID oscillator, uint8_t channel);
-
-    void setDutyCycle(OSCID oscillator, double value)
+    void setDutyCycle(OSCID oscillator, float value)
     {
         DutyCycle duty = SquareOscilator::dutyCycleFromValue(value);
         switch (oscillator)
@@ -330,12 +322,6 @@ public:
             case 1: return osc2.setDuty(duty);
             default: return;
         }
-    }
-
-    void setVolume(OSCID oscillator, double value)
-    {
-        jassert(value >= 0.0 && value <= 1.0);
-        oscs_[oscillator]->volume = value;
     }
 
     void setEnvelopeStep(OSCID oscillator, uint8_t value)
@@ -363,9 +349,10 @@ public:
     void readSamples(juce::AudioBuffer<float>* out);
 
     void setDefaults();
+    void loadFromParams(juce::AudioProcessorValueTreeState& params);
     void stop();
 
-private:
     void reconfigure(OSCID oscillator);
+private:
     void handleMIDIEvent(juce::MidiMessage msg);
 };

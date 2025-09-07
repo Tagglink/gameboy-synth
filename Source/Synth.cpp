@@ -124,9 +124,9 @@ void Oscillator::setVolumeEnvelope(uint8_t startVelocity, EnvelopeDirection enve
 {
     jassert(id_ != 2);
     uint8_t v = midiVelocityTo4BitVolume(startVelocity);
-    v = (uint8_t)((float) v * volume); // scaled
+    v = (uint8_t)((float) v * (*volume / 15.0f)); // scaled
     bool increasing = envelopeDir == EnvelopeDirection::increasing;
-    apu_->writeRegister(startAddr_ + NRX2, v << 4 | (increasing ? 0x08 : 0x00) | (period & 0x03));
+    apu_->writeRegister(startAddr_ + NRX2, v << 4 | (increasing ? 0x08 : 0x00) | (period & 0x07));
 }
 
 void Oscillator::setConstantVolume(uint8_t velocity)
@@ -138,8 +138,6 @@ Oscillator::~Oscillator() {};
 
 void SquareOscilator::setDuty(DutyCycle duty)
 {
-    if (duty == duty_) return;
-    duty_ = duty;
     apu_->writeRegister(startAddr_ + NRX1, (uint8_t) duty << 6);
 }
 
@@ -155,7 +153,7 @@ void SquareOscilator::setEvent(MidiEvent event)
 
 void SquareOscilator::afterInit()
 {
-    setDuty(duty_);
+    apu_->writeRegister(startAddr_ + NRX1, 0x80);
     apu_->writeRegister(startAddr_ + NRX0, 0x00); // disable sweep
 }
 
@@ -236,44 +234,40 @@ void Synth::setDefaults()
 {
     for (OSCID i = 0; i < NUM_OSC; i++) {
         oscs_[i]->setApu(&apu_);
-        configs_[i].enabled = false;
-        configs_[i].channel = 0;
-        configs_[i].voice = 0;
-        reconfigure(i);
+        configs_[i].enabled = nullptr;
+        configs_[i].channel = nullptr;
+        configs_[i].voice = nullptr;
+        // reconfigure(i);
     }
+}
+
+void Synth::loadFromParams(juce::AudioProcessorValueTreeState& params)
+{
+    configs_[0].enabled = params.getRawParameterValue("osc0enable");
+    configs_[1].enabled = params.getRawParameterValue("osc1enable");
+    configs_[2].enabled = params.getRawParameterValue("osc2enable");
+    configs_[3].enabled = params.getRawParameterValue("osc3enable");
+    configs_[0].channel = params.getRawParameterValue("osc0channel");
+    configs_[1].channel = params.getRawParameterValue("osc1channel");
+    configs_[2].channel = params.getRawParameterValue("osc2channel");
+    configs_[3].channel = params.getRawParameterValue("osc3channel");
+    configs_[0].voice = params.getRawParameterValue("osc0voice");
+    configs_[1].voice = params.getRawParameterValue("osc1voice");
+    configs_[2].voice = params.getRawParameterValue("osc2voice");
+    configs_[3].voice = params.getRawParameterValue("osc3voice");
+    configs_[0].transpose = params.getRawParameterValue("osc0transpose");
+    configs_[1].transpose = params.getRawParameterValue("osc1transpose");
+    configs_[2].transpose = params.getRawParameterValue("osc2transpose");
+    configs_[3].transpose = params.getRawParameterValue("osc3transpose");
+    osc1.volume = params.getRawParameterValue("osc0volume");
+    osc2.volume = params.getRawParameterValue("osc1volume");
+    osc4.volume = params.getRawParameterValue("osc3volume");
+    reconfigure(0);
 }
 
 void Synth::stop()
 {
     apu_.reset();
-}
-
-void Synth::setEnabled(OSCID oscillator, bool enabled)
-{
-    jassert(oscillator < NUM_OSC);
-    configs_[oscillator].enabled = enabled;
-    reconfigure(oscillator);
-}
-
-void Synth::setTranspose(OSCID oscillator, int8_t transpose)
-{
-    jassert(oscillator < NUM_OSC);
-    configs_[oscillator].transpose = transpose;
-    reconfigure(oscillator);
-}
-
-void Synth::setMIDIVoice(OSCID oscillator, uint8_t voice)
-{
-    jassert(oscillator < NUM_OSC);
-    configs_[oscillator].voice = voice;
-    reconfigure(oscillator);
-}
-
-void Synth::setMIDIChannel(OSCID oscillator, uint8_t channel)
-{
-    jassert(oscillator < NUM_OSC);
-    configs_[oscillator].channel = channel & 0x0F;
-    reconfigure(oscillator);
 }
 
 void Synth::reconfigure(OSCID oscillator)
@@ -283,12 +277,12 @@ void Synth::reconfigure(OSCID oscillator)
     size_t voicesRequired = 0;
     uint8_t enabled = 0;
     for (OSCID i = 0; i < NUM_OSC; i++) {
-        if (!configs_[i].enabled) continue;
+        if (*configs_[i].enabled <= 0.0f) continue;
         enabled |= (1 << i);
-        if ((voices >> configs_[i].voice) & 0x01) {
+        if ((voices >> ((uint8_t) *configs_[i].voice)) & 0x01) {
             continue;
         }
-        voices |= (1 << configs_[i].voice);
+        voices |= (1 << ((uint8_t) *configs_[i].voice));
         voicesRequired++;
     }
     manager_.setVoices(voicesRequired);
@@ -325,9 +319,9 @@ void Synth::handleMIDIEvent(juce::MidiMessage msg)
     }
     // now pass that midi info to the oscillators
     for (OSCID i = 0; i < NUM_OSC; i++) {
-        if (!configs_[i].enabled) continue;
-        MidiEvent e = manager_.get(configs_[i].voice);
-        e.note += configs_[i].transpose;
+        if (*configs_[i].enabled <= 0.0f) continue;
+        MidiEvent e = manager_.get((uint8_t) *configs_[i].voice);
+        e.note += (int8_t) *configs_[i].transpose - 48;
         oscs_[i]->setEvent(e);
     }
 }

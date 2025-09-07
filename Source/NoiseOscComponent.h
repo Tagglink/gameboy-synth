@@ -12,25 +12,25 @@
 
 #include <JuceHeader.h>
 #include "BasicControlsComponent.h"
+#include "EditorHost.h"
 
 //==============================================================================
 /*
 */
-class NoiseOscComponent  : public juce::Component,
-                           public juce::ComboBox::Listener
+class NoiseOscComponent  : public juce::Component
 {
 public:
-    NoiseOscComponent();
+    NoiseOscComponent(EditorHost* host);
     ~NoiseOscComponent() override;
 
     void paint(juce::Graphics&) override;
     void resized() override;
 
-    void comboBoxChanged(juce::ComboBox* comboBox) override;
-
 private:
     BasicControlsComponent controls;
     juce::ComboBox shiftWidthPicker;
+
+    std::unique_ptr<EditorHost::ComboBoxAttachment> shiftWidthPickerAttach;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseOscComponent)
 };

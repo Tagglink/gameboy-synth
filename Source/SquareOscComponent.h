@@ -12,6 +12,7 @@
 
 #include <JuceHeader.h>
 #include "BasicControlsComponent.h"
+#include "EditorHost.h"
 
 //==============================================================================
 /*
@@ -19,7 +20,7 @@
 class SquareOscComponent  : public juce::Component
 {
 public:
-    SquareOscComponent(OSCID id);
+    SquareOscComponent(OSCID id, EditorHost* host);
     ~SquareOscComponent() override;
 
     void paint(juce::Graphics&) override;

@@ -22,9 +22,16 @@ GameBoySynthAudioProcessor::GameBoySynthAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
+#else
+    : AudioProcessor(),
 #endif
+      // The identifier can't contain spaces or most special characters, since it is
+      // serialized as an xml tag name when saving the state.
+      parameters_(*this, nullptr, juce::Identifier("GameBoySynth"), parameterLayout())
 {
+    addParameterListeners();
+    Synth::INSTANCE.loadFromParams(parameters_);
 }
 
 GameBoySynthAudioProcessor::~GameBoySynthAudioProcessor() {}
@@ -151,21 +158,161 @@ bool GameBoySynthAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* GameBoySynthAudioProcessor::createEditor()
 {
-    return new GameBoySynthAudioProcessorEditor(*this);
+    return new GameBoySynthAudioProcessorEditor(*this, parameters_);
 }
 
 //==============================================================================
 void GameBoySynthAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    juce::ValueTree state = parameters_.copyState();
+    std::unique_ptr<juce::XmlElement> xml(state.createXml());
+    copyXmlToBinary(*xml, destData);
 }
 
 void GameBoySynthAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+    if (xmlState.get() != nullptr) {
+        if (xmlState->hasTagName(parameters_.state.getType())) {
+            parameters_.replaceState(juce::ValueTree::fromXml(*xmlState));
+            parametersReplaced();
+        }
+    }
+}
+
+//==============================================================================
+class PWMRange : public juce::NormalisableRange<float> {
+public:
+    static float normalize(float rangeStart, float rangeEnd, float valueToRemap)
+    {
+        return valueToRemap / 100.0f;
+    }
+    static float denormalize(float rangeStart, float rangeEnd, float valueToRemap)
+    {
+        return valueToRemap * 100.0f;
+    }
+    static float snap(float rangeStart, float rangeEnd, float valueToRemap)
+    {
+        return SquareOscilator::normalizeDutyCycle(valueToRemap);
+    }
+    PWMRange() : juce::NormalisableRange<float>(0, 100, denormalize, normalize, snap) {}
+};
+
+void GameBoySynthAudioProcessor::parameterChanged(const juce::String& parameterId, float newValue)
+{
+    if (parameterId.contains("enable") || parameterId.contains("channel") || parameterId.contains("voice")
+        || parameterId.contains("transpose")) {
+        Synth::INSTANCE.reconfigure(0);
+    } else if (parameterId.compare("osc0pwm") == 0) {
+        Synth::INSTANCE.setDutyCycle(0, newValue);
+    } else if (parameterId.compare("osc1pwm") == 0) {
+        Synth::INSTANCE.setDutyCycle(1, newValue);
+    } else if (parameterId.compare("osc0envstep") == 0) {
+        Synth::INSTANCE.setEnvelopeStep(0, (uint8_t) newValue);
+    } else if (parameterId.compare("osc1envstep") == 0) {
+        Synth::INSTANCE.setEnvelopeStep(1, (uint8_t) newValue);
+    } else if (parameterId.compare("osc3envstep") == 0) {
+        Synth::INSTANCE.setEnvelopeStep(3, (uint8_t) newValue);
+    } else if (parameterId.compare("osc0envdir") == 0) {
+        Synth::INSTANCE.setEnvelopeDirection(0, (EnvelopeDirection) newValue);
+    } else if (parameterId.compare("osc1envdir") == 0) {
+        Synth::INSTANCE.setEnvelopeDirection(1, (EnvelopeDirection) newValue);
+    } else if (parameterId.compare("osc3envdir") == 0) {
+        Synth::INSTANCE.setEnvelopeDirection(3, (EnvelopeDirection) newValue);
+    } else if (parameterId.compare("osc3shiftwidth") == 0) {
+        Synth::INSTANCE.setShiftWidth((NoiseShiftWidth) newValue);
+    }
+}
+
+juce::StringArray GameBoySynthAudioProcessor::sequence(int from, int to)
+{
+   jassert(to > from);
+   int len = std::max(to - from + 1, 0);
+   juce::StringArray ret;
+   for (int i = 0; i < len; i++) {
+       ret.add(juce::String(from + i));
+   }
+   return ret;
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout GameBoySynthAudioProcessor::parameterLayout()
+{
+    juce::AudioProcessorValueTreeState::ParameterLayout params;
+    params.add(std::make_unique<juce::AudioParameterBool>("osc0enable", "OSC0 Enable", true));
+    params.add(std::make_unique<juce::AudioParameterBool>("osc1enable", "OSC1 Enable", true));
+    params.add(std::make_unique<juce::AudioParameterBool>("osc2enable", "OSC2 Enable", false));
+    params.add(std::make_unique<juce::AudioParameterBool>("osc3enable", "OSC3 Enable", false));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc0channel", "OSC0 Channel", sequence(1, 16), 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc1channel", "OSC1 Channel", sequence(1, 16), 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc2channel", "OSC2 Channel", sequence(1, 16), 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc3channel", "OSC3 Channel", sequence(1, 16), 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc0voice", "OSC0 Voice", sequence(1, 4), 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc1voice", "OSC1 Voice", sequence(1, 4), 1));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc2voice", "OSC2 Voice", sequence(1, 4), 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc3voice", "OSC3 Voice", sequence(1, 4), 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc0transpose", "OSC0 Transpose", sequence(-48, 48), 48));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc1transpose", "OSC1 Transpose", sequence(-48, 48), 48));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc2transpose", "OSC2 Transpose", sequence(-48, 48), 48));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc3transpose", "OSC3 Transpose", sequence(-48, 48), 48));
+    params.add(std::make_unique<juce::AudioParameterFloat>("osc0volume", "OSC0 Volume", juce::NormalisableRange<float>(0.0f, 15.0f, 1.0f, 1.0f), 15.0f, juce::AudioParameterFloatAttributes().withStringFromValueFunction(sliderStringFromValueFn(0))));
+    params.add(std::make_unique<juce::AudioParameterFloat>("osc1volume", "OSC1 Volume", juce::NormalisableRange<float>(0.0f, 15.0f, 1.0f, 1.0f), 15.0f, juce::AudioParameterFloatAttributes().withStringFromValueFunction(sliderStringFromValueFn(0))));
+    params.add(std::make_unique<juce::AudioParameterFloat>("osc3volume", "OSC3 Volume", juce::NormalisableRange<float>(0.0f, 15.0f, 1.0f, 1.0f), 15.0f, juce::AudioParameterFloatAttributes().withStringFromValueFunction(sliderStringFromValueFn(0))));
+    params.add(std::make_unique<juce::AudioParameterFloat>("osc0pwm", "OSC0 PWM", PWMRange(), 50.0f, juce::AudioParameterFloatAttributes().withStringFromValueFunction(sliderStringFromValueFn(1))));
+    params.add(std::make_unique<juce::AudioParameterFloat>("osc1pwm", "OSC1 PWM", PWMRange(), 50.0f, juce::AudioParameterFloatAttributes().withStringFromValueFunction(sliderStringFromValueFn(1))));
+    params.add(std::make_unique<juce::AudioParameterFloat>("osc0envstep", "OSC0 Envelope step", juce::NormalisableRange<float>(0.0f, 7.0f, 1.0f, 1.0f), 0.0f, juce::AudioParameterFloatAttributes().withStringFromValueFunction(sliderStringFromValueFn(0))));
+    params.add(std::make_unique<juce::AudioParameterFloat>("osc1envstep", "OSC1 Envelope step", juce::NormalisableRange<float>(0.0f, 7.0f, 1.0f, 1.0f), 0.0f, juce::AudioParameterFloatAttributes().withStringFromValueFunction(sliderStringFromValueFn(0))));
+    params.add(std::make_unique<juce::AudioParameterFloat>("osc3envstep", "OSC3 Envelope step", juce::NormalisableRange<float>(0.0f, 7.0f, 1.0f, 1.0f), 0.0f, juce::AudioParameterFloatAttributes().withStringFromValueFunction(sliderStringFromValueFn(0))));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc0envdir", "OSC0 Envelope direction", juce::StringArray{"-", "+"}, 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc1envdir", "OSC1 Envelope direction", juce::StringArray{"-", "+"}, 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc3envdir", "OSC3 Envelope direction", juce::StringArray{"-", "+"}, 0));
+    params.add(std::make_unique<juce::AudioParameterChoice>("osc3shiftwidth", "OSC3 Shift width", juce::StringArray{"15", "7"}, 0));
+    return params;
+}
+
+
+std::function<juce::String(float, int)> GameBoySynthAudioProcessor::sliderStringFromValueFn(int numDecimalsToShow)
+{
+    return [numDecimalsToShow](float v, int maxLength) {
+        juce::String str(v, numDecimalsToShow);
+        return maxLength > 0 ? str.substring(0, maxLength) : str;
+    };
+}
+
+void GameBoySynthAudioProcessor::addParameterListeners()
+{
+    parameters_.addParameterListener("osc0enable", this);
+    parameters_.addParameterListener("osc1enable", this);
+    parameters_.addParameterListener("osc2enable", this);
+    parameters_.addParameterListener("osc3enable", this);
+    parameters_.addParameterListener("osc0channel", this);
+    parameters_.addParameterListener("osc1channel", this);
+    parameters_.addParameterListener("osc2channel", this);
+    parameters_.addParameterListener("osc3channel", this);
+    parameters_.addParameterListener("osc0voice", this);
+    parameters_.addParameterListener("osc1voice", this);
+    parameters_.addParameterListener("osc2voice", this);
+    parameters_.addParameterListener("osc3voice", this);
+    parameters_.addParameterListener("osc0transpose", this);
+    parameters_.addParameterListener("osc1transpose", this);
+    parameters_.addParameterListener("osc2transpose", this);
+    parameters_.addParameterListener("osc3transpose", this);
+    parameters_.addParameterListener("osc0volume", this);
+    parameters_.addParameterListener("osc1volume", this);
+    parameters_.addParameterListener("osc3volume", this);
+    parameters_.addParameterListener("osc0pwm", this);
+    parameters_.addParameterListener("osc1pwm", this);
+    parameters_.addParameterListener("osc0envstep", this);
+    parameters_.addParameterListener("osc1envstep", this);
+    parameters_.addParameterListener("osc3envstep", this);
+    parameters_.addParameterListener("osc0envdir", this);
+    parameters_.addParameterListener("osc1envdir", this);
+    parameters_.addParameterListener("osc3envdir", this);
+    parameters_.addParameterListener("osc3shiftwidth", this);
+}
+
+void GameBoySynthAudioProcessor::parametersReplaced()
+{
+    Synth::INSTANCE.reconfigure(0);
 }
 
 //==============================================================================

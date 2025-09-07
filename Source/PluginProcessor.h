@@ -13,7 +13,8 @@
 //==============================================================================
 /**
 */
-class GameBoySynthAudioProcessor  : public juce::AudioProcessor
+class GameBoySynthAudioProcessor  : public juce::AudioProcessor,
+                                    public juce::AudioProcessorValueTreeState::Listener
 {
 public:
     //==============================================================================
@@ -56,9 +57,19 @@ public:
     //==============================================================================
     juce::MidiMessageCollector* getMidiCollector() { return &midiCollector_; }
 
+    //==============================================================================
+    void parameterChanged(const juce::String& parameterId, float newValue) override;
+
 private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (GameBoySynthAudioProcessor)
 
     juce::MidiMessageCollector midiCollector_;
+    juce::AudioProcessorValueTreeState parameters_;
+
+    std::function<juce::String(float, int)> sliderStringFromValueFn(int numDecimalsToShow);
+    juce::StringArray sequence(int from, int to);
+    juce::AudioProcessorValueTreeState::ParameterLayout parameterLayout();
+    void addParameterListeners();
+    void parametersReplaced();
 };

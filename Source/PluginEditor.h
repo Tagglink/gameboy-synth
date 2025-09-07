@@ -14,24 +14,36 @@
 #include "WaveOscComponent.h"
 #include "NoiseOscComponent.h"
 #include "Theme.h"
+#include "EditorHost.h"
 
 //==============================================================================
 /**
 */
-class GameBoySynthAudioProcessorEditor  : public juce::AudioProcessorEditor
+class GameBoySynthAudioProcessorEditor  : public juce::AudioProcessorEditor,
+                                          public EditorHost
 {
 public:
-    GameBoySynthAudioProcessorEditor(GameBoySynthAudioProcessor&);
+    GameBoySynthAudioProcessorEditor(GameBoySynthAudioProcessor&,
+                                     juce::AudioProcessorValueTreeState&);
     ~GameBoySynthAudioProcessorEditor() override;
 
     //==============================================================================
     void paint(juce::Graphics&) override;
     void resized() override;
 
+    //==============================================================================
+    juce::AudioProcessorValueTreeState::ButtonAttachment* attachButtonToParameter(
+            const juce::String& parameterId, juce::Button& button) override;
+    juce::AudioProcessorValueTreeState::ComboBoxAttachment* attachComboBoxToParameter(
+            const juce::String& parameterId, juce::ComboBox& comboBox) override;
+    juce::AudioProcessorValueTreeState::SliderAttachment* attachSliderToParameter(
+            const juce::String& parameterId, juce::Slider& slider) override;
+
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     GameBoySynthAudioProcessor& audioProcessor;
+    juce::AudioProcessorValueTreeState& parameters;
     SquareOscComponent osc0;
     SquareOscComponent osc1;
     WaveOscComponent osc2;

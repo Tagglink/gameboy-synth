@@ -605,6 +605,7 @@ static const unsigned char temp_binary_data_2[] =
 "#include <JuceHeader.h>\n"
 "#include \"BasicControlsComponent.h\"\n"
 "#include \"WavetableComponent.h\"\n"
+"#include \"EditorHost.h\"\n"
 "\n"
 "//==============================================================================\n"
 "/*\n"
@@ -614,7 +615,7 @@ static const unsigned char temp_binary_data_2[] =
 "                            public juce::ChangeListener\n"
 "{\n"
 "public:\n"
-"    WaveOscComponent();\n"
+"    WaveOscComponent(EditorHost* host);\n"
 "    ~WaveOscComponent() override;\n"
 "\n"
 "    WavetableComponent wavetable;\n"
@@ -648,7 +649,7 @@ const char* getNamedResource (const char* resourceNameUTF8, int& numBytes)
     {
         case 0x34bc1021:  numBytes = 35147; return LICENSE;
         case 0x64791dc8:  numBytes = 3940; return README_md;
-        case 0xc563c4a0:  numBytes = 1103; return WaveOscComponent_h;
+        case 0xc563c4a0:  numBytes = 1143; return WaveOscComponent_h;
         default: break;
     }
 

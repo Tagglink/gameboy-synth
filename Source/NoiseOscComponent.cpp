@@ -13,16 +13,13 @@
 #include "Theme.h"
 
 //==============================================================================
-NoiseOscComponent::NoiseOscComponent() :
-    controls(3),
+NoiseOscComponent::NoiseOscComponent(EditorHost* host) :
+    controls(3, host),
     shiftWidthPicker("Width")
 {
     addAndMakeVisible(controls);
 
-    shiftWidthPicker.addListener(this);
-    shiftWidthPicker.addItem("15", 1);
-    shiftWidthPicker.addItem("7", 2);
-    shiftWidthPicker.setSelectedId(1);
+    shiftWidthPickerAttach.reset(host->attachComboBoxToParameter("osc3shiftwidth", shiftWidthPicker));
     addAndMakeVisible(shiftWidthPicker);
 }
 
@@ -45,9 +42,3 @@ void NoiseOscComponent::resized()
     shiftWidthPicker.setBounds(left, rowUnit + rowUnit / 2 - pickerHeight / 2, rowUnit, pickerHeight);
 }
 
-void NoiseOscComponent::comboBoxChanged(juce::ComboBox* comboBox)
-{
-    if (comboBox == &shiftWidthPicker) {
-        Synth::INSTANCE.setShiftWidth((NoiseShiftWidth) (comboBox->getSelectedId() - 1));
-    }
-}

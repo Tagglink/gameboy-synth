@@ -12,25 +12,19 @@
 
 #include <JuceHeader.h>
 #include "Synth.h"
+#include "EditorHost.h"
 
 //==============================================================================
 /*
 */
-class BasicControlsComponent  : public juce::Component,
-                                public juce::Button::Listener,
-                                public juce::Slider::Listener,
-                                public juce::ComboBox::Listener
+class BasicControlsComponent  : public juce::Component
 {
 public:
-    BasicControlsComponent(OSCID id);
+    BasicControlsComponent(OSCID id, EditorHost* host);
     ~BasicControlsComponent() override;
 
     void paint(juce::Graphics&) override;
     void resized() override;
-
-    void buttonClicked(juce::Button* button) override;
-    void sliderValueChanged(juce::Slider* slider) override;
-    void comboBoxChanged(juce::ComboBox *comboBox) override;
 
 private:
     OSCID id_;
@@ -42,6 +36,15 @@ private:
     juce::ComboBox transposePicker;
     juce::Slider envelopeStepSlider;
     juce::ComboBox envelopeDirPicker;
+
+    std::unique_ptr<EditorHost::ButtonAttachment> enableButtonAttach;
+    std::unique_ptr<EditorHost::SliderAttachment> volSliderAttach;
+    std::unique_ptr<EditorHost::SliderAttachment> pwmSliderAttach;
+    std::unique_ptr<EditorHost::ComboBoxAttachment> channelPickerAttach;
+    std::unique_ptr<EditorHost::ComboBoxAttachment> voicePickerAttach;
+    std::unique_ptr<EditorHost::ComboBoxAttachment> transposePickerAttach;
+    std::unique_ptr<EditorHost::SliderAttachment> envelopeStepSliderAttach;
+    std::unique_ptr<EditorHost::ComboBoxAttachment> envelopeDirPickerAttach;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BasicControlsComponent)
 };

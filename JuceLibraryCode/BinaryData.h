@@ -15,7 +15,7 @@ namespace BinaryData
     const int            README_mdSize = 3940;
 
     extern const char*   WaveOscComponent_h;
-    const int            WaveOscComponent_hSize = 1103;
+    const int            WaveOscComponent_hSize = 1143;
 
     // Number of elements in the namedResourceList and originalFileNames arrays.
     const int namedResourceListSize = 3;

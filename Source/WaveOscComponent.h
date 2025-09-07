@@ -13,6 +13,7 @@
 #include <JuceHeader.h>
 #include "BasicControlsComponent.h"
 #include "WavetableComponent.h"
+#include "EditorHost.h"
 
 //==============================================================================
 /*
@@ -22,7 +23,7 @@ class WaveOscComponent  : public juce::Component,
                             public juce::ChangeListener
 {
 public:
-    WaveOscComponent();
+    WaveOscComponent(EditorHost* host);
     ~WaveOscComponent() override;
 
     WavetableComponent wavetable;
